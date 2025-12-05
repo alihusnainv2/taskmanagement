@@ -2,7 +2,7 @@ name: Test Deploy Laravel to Hostinger
 
 on:
   push:
-    branches: ["main"]  # Change if you push to a different branch
+    branches: ["main"]
 
 jobs:
   deploy:
@@ -28,8 +28,8 @@ jobs:
           source: "deploy.zip"
           target: ${{ secrets.TARGET }}
 
-      # 4️⃣ SSH into server and extract ZIP
-      - name: Extract ZIP on Hostinger
+      # 4️⃣ SSH into server, extract ZIP, create log & verify
+      - name: Extract ZIP and log deployment
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -38,5 +38,18 @@ jobs:
           key: ${{ secrets.KEY }}
           script: |
             cd ${{ secrets.TARGET }}
+            echo "==== Deployment Started at $(date) ====" >> deploy.log
+            echo "Files before deployment:" >> deploy.log
+            ls -la >> deploy.log
             unzip -o deploy.zip
             rm deploy.zip
+            echo "Files after deployment:" >> deploy.log
+            ls -la >> deploy.log
+            echo "==== Deployment Finished at $(date) ====" >> deploy.log
+
+            # ✅ Optional: Verify key file exists
+            if [ -f "resources/views/home/home.blade.php" ]; then
+              echo "✔ Key file exists" >> deploy.log
+            else
+              echo "❌ Key file missing!" >> deploy.log
+            fi
