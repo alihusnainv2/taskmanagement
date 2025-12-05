@@ -15,7 +15,8 @@ jobs:
 
       # 2️⃣ Create ZIP of project (excluding .git folder)
       - name: Create ZIP
-        run: zip -r deploy.zip . -x "*.git*"
+        run: zip -r deploy.zip . -x "*.git*" -x ".env" -x "*.env.*"
+
 
       # 3️⃣ Upload ZIP to Hostinger
       - name: Upload to Hostinger
