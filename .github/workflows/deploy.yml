@@ -1,4 +1,4 @@
-name: Test Deploy Laravel to Hostinger
+name: Deploy Laravel to Hostinger (ZIP Clean Deploy)
 
 on:
   push:
@@ -9,27 +9,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install rsync
-        run: sudo apt-get update && sudo apt-get install -y rsync
+      # 2️⃣ Create ZIP (EXCLUDING .git and .env)
+      - name: Create deploy.zip
+        run: zip -r deploy.zip . -x "*.git*" -x ".env" -x "*.env.*"
 
-      - name: Setup SSH Key
-        run: |
-          echo "${{ secrets.KEY }}" > deploy_key
-          chmod 600 deploy_key
+      # 3️⃣ Upload ZIP
+      - name: Upload deploy.zip to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          port: ${{ secrets.PORT }}
+          key: ${{ secrets.KEY }}
+          source: "deploy.zip"
+          target: ${{ secrets.TARGET }}
 
-      - name: Rsync Deploy to Hostinger
-        run: |
-          rsync -avz --delete \
-          --exclude='.git' \
-          --exclude='.env' \
-          --exclude='deploy.log' \
-          -e "ssh -i deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.PORT }}" \
-          ./ ${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.TARGET }}
-
-      - name: SSH Laravel Optimize & Log
+      # 4️⃣ Delete old files, extract new ZIP, optimize
+      - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -38,10 +38,25 @@ jobs:
           key: ${{ secrets.KEY }}
           script: |
             cd ${{ secrets.TARGET }}
-            echo "==== Deployment Started at $(date) ====" >> deploy.log
-            php artisan config:clear
-            php artisan cache:clear
-            php artisan route:clear
-            php artisan view:clear
-            php artisan optimize
-            echo "==== Deployment Finished at $(date) ====" >> deploy.log
+
+            echo "===== Starting Clean Deployment $(date) =====" >> deploy.log
+
+            echo "Deleting old project files..." >> deploy.log
+
+            # ❌ DELETE EVERYTHING EXCEPT THESE FILES
+            find . -mindepth 1 \
+              ! -name ".env" \
+              ! -name ".htaccess" \
+              ! -name "index.php" \
+              ! -name "server.php" \
+              ! -name "deploy.zip" \
+              -exec rm -rf {} +
+
+            echo "Extracting new project..." >> deploy.log
+            unzip -o deploy.zip
+            rm deploy.zip
+
+            echo "Running Laravel optimize..." >> deploy.log
+            php artisan optimize || true
+
+            echo "===== Deployment Completed $(date) =====" >> deploy.log
