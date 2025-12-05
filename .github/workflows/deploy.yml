@@ -1,4 +1,4 @@
-name: Deploy Laravel to Hostinger (ZIP Clean Deploy)
+name: Deploy Laravel to Hostinger (ZIP Clean + Composer Install)
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
 
       # 2️⃣ Create ZIP (EXCLUDING .git and .env)
       - name: Create deploy.zip
-        run: zip -r deploy.zip . -x "*.git*" -x ".env" -x "*.env.*"
+        run: zip -r deploy.zip . -x "*.git*" -x ".env" -x "*.env.*" -x "vendor/*"
 
       # 3️⃣ Upload ZIP
       - name: Upload deploy.zip to server
@@ -28,7 +28,7 @@ jobs:
           source: "deploy.zip"
           target: ${{ secrets.TARGET }}
 
-      # 4️⃣ Delete old files, extract new ZIP, optimize
+      # 4️⃣ Deploy on server
       - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
@@ -41,9 +41,9 @@ jobs:
 
             echo "===== Starting Clean Deployment $(date) =====" >> deploy.log
 
-            echo "Deleting old project files..." >> deploy.log
+            echo "Cleaning old files..." >> deploy.log
 
-            # ❌ DELETE EVERYTHING EXCEPT THESE FILES
+            # ❌ DELETE EVERYTHING EXCEPT these files
             find . -mindepth 1 \
               ! -name ".env" \
               ! -name ".htaccess" \
@@ -52,9 +52,12 @@ jobs:
               ! -name "deploy.zip" \
               -exec rm -rf {} +
 
-            echo "Extracting new project..." >> deploy.log
+            echo "Extracting ZIP..." >> deploy.log
             unzip -o deploy.zip
             rm deploy.zip
+
+            echo "Running Composer Install..." >> deploy.log
+            composer install --no-dev --prefer-dist --optimize-autoloader
 
             echo "Running Laravel optimize..." >> deploy.log
             php artisan optimize || true
