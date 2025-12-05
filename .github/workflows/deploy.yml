@@ -13,9 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Create ZIP of project (excluding .git folder and .env)
+      # 2️⃣ Create ZIP of project (excluding .git folder)
       - name: Create ZIP
-        run: zip -r deploy.zip . -x "*.git*" -x ".env"
+        run: zip -r deploy.zip . -x "*.git*"
 
       # 3️⃣ Upload ZIP to Hostinger
       - name: Upload to Hostinger
