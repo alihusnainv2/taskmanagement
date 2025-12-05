@@ -11,7 +11,7 @@ class HomeController extends Controller
 
     public function index(Request $request)
     {
-        // Retrieve all projects and tasks
+        dd();
         $projects = Project::getAllProjects();
         $tasks = Task::getAllTasks();
 
