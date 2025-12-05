@@ -9,24 +9,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Install rsync (in case runner doesn't have it)
       - name: Install rsync
         run: sudo apt-get update && sudo apt-get install -y rsync
 
-      # 3️⃣ Deploy via rsync (mirror local repo to server)
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.KEY }}" > deploy_key
+          chmod 600 deploy_key
+
       - name: Rsync Deploy to Hostinger
         run: |
           rsync -avz --delete \
           --exclude='.git' \
           --exclude='.env' \
           --exclude='deploy.log' \
-          ./ ${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.TARGET }} -e "ssh -p ${{ secrets.PORT }}"
+          -e "ssh -i deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.PORT }}" \
+          ./ ${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.TARGET }}
 
-      # 4️⃣ SSH into server, run Laravel optimizations, log deployment
       - name: SSH Laravel Optimize & Log
         uses: appleboy/ssh-action@master
         with:
