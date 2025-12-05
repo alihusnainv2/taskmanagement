@@ -13,10 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Create ZIP of project (excluding .git folder)
+      # 2️⃣ Create ZIP of project (excluding .git folder and .env files)
       - name: Create ZIP
         run: zip -r deploy.zip . -x "*.git*" -x ".env" -x "*.env.*"
-
 
       # 3️⃣ Upload ZIP to Hostinger
       - name: Upload to Hostinger
@@ -29,8 +28,8 @@ jobs:
           source: "deploy.zip"
           target: ${{ secrets.TARGET }}
 
-      # 4️⃣ SSH into server, extract ZIP, create log & verify
-      - name: Extract ZIP and log deployment
+      # 4️⃣ SSH into server, extract ZIP, log deployment, run artisan optimize
+      - name: Extract ZIP, optimize, and log deployment
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -40,12 +39,27 @@ jobs:
           script: |
             cd ${{ secrets.TARGET }}
             echo "==== Deployment Started at $(date) ====" >> deploy.log
+
+            # ✅ Optional: delete files removed from repo but keep .env and deploy.log
+            find . -maxdepth 1 -not -name '.' -not -name '.env' -not -name 'deploy.log' -not -name 'storage' -exec rm -rf {} +
+
             echo "Files before deployment:" >> deploy.log
             ls -la >> deploy.log
+
+            # Extract uploaded ZIP
             unzip -o deploy.zip
             rm deploy.zip
+
             echo "Files after deployment:" >> deploy.log
             ls -la >> deploy.log
+
+            # Run Laravel cache optimizations
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan optimize
+
             echo "==== Deployment Finished at $(date) ====" >> deploy.log
 
             # ✅ Optional: Verify key file exists
