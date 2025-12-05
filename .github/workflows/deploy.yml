@@ -1,0 +1,59 @@
+name: Deploy Laravel to Hostinger
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout code
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Install composer dependencies
+    - name: Install Composer Dependencies
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    # Zip project for upload
+    - name: Create ZIP
+      run: zip -r deploy.zip . -x "*.git*" -x "vendor/*"
+
+    # Upload ZIP to hostinger
+    - name: Upload to Hostinger
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USER }}
+        port: ${{ secrets.PORT }}
+        key: ${{ secrets.KEY }}
+        source: "deploy.zip"
+        target: ${{ secrets.TARGET }}
+
+    # SSH into server and deploy
+    - name: Extract and Deploy on Hostinger
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USER }}
+        port: ${{ secrets.PORT }}
+        key: ${{ secrets.KEY }}
+        script: |
+          cd ${{ secrets.TARGET }}
+
+          # remove old files except env
+          find . ! -name '.env' ! -name '.' ! -name '..' -delete
+
+          # unzip new code
+          unzip deploy.zip
+          rm deploy.zip
+
+          # install vendor packages on server
+          composer install --no-dev --prefer-dist --optimize-autoloader
+
+          # Laravel commands
+          php artisan key:generate --force
+          php artisan migrate --force
+          php artisan optimize
